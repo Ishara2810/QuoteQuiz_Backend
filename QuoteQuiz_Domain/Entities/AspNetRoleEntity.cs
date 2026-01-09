@@ -1,0 +1,16 @@
+﻿using Microsoft.AspNetCore.Identity;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace QuoteQuiz_Domain.Entities
+{
+    public class AspNetRoleEntity
+    {
+        public string Id { get; set; } = default!;
+        public string? Name { get; set; }
+        public string? NormalizedName { get; set; }
+    }
+}
