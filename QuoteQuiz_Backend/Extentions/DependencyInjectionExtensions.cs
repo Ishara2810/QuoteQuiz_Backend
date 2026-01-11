@@ -22,6 +22,11 @@ namespace QuoteQuiz_API.Extentions
             services.AddScoped<IQuoteRepository, QuoteRepository>();
             services.AddScoped<IQuoteService, QuoteService>();
 
+            services.AddScoped<IQuizService, QuizService>();
+
+            services.AddScoped<IQuizAttemptRepository, QuizAttemptRepository>();
+            services.AddScoped<IQuizAttemptService, QuizAttemptService>();
+
             return services;
         }
     }

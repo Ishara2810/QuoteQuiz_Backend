@@ -17,5 +17,6 @@ namespace QuoteQuiz_Domain.Interfaces.IRepositories
         public Task UpdateAsync(AspNetUserEntity user);
         public Task RemoveAsync(AspNetUserEntity user);
         public Task UpdateStatusAsync(AspNetUserEntity user);
+        public Task UpdateQuizMode(AspNetUserEntity user);
     }
 }

@@ -52,5 +52,10 @@ namespace QuoteQuiz_Application.Services
         {
             await _userRepository.UpdateStatusAsync(user);
         }
+
+        public async Task UpdateQuizMode(AspNetUserEntity user)
+        {
+            await _userRepository.UpdateQuizMode(user);
+        }
     }
 }

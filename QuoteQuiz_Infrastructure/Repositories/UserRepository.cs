@@ -39,6 +39,7 @@ namespace QuoteQuiz_Infrastructure.Repositories
         public async Task<IReadOnlyList<AspNetUserEntity>> GetAllAsync()
         {
             var usersWithRoles = await _context.Users
+            .Where(u => !u.IsDeleted)
             .GroupJoin(
                 _context.UserRoles,
                 u => u.Id,
@@ -91,6 +92,8 @@ namespace QuoteQuiz_Infrastructure.Repositories
             var exists = await _context.Set<ApplicationUser>().FirstOrDefaultAsync(t => t.Id == user.Id && !t.IsDeleted);
             if (exists == null) throw new Exception("User Not Found");
             exists.IsDeleted = user.IsDeleted;
+            exists.DeletedBy = user.DeletedBy;
+            exists.DeletedOn = user.DeletedOn;
             await _userManager.UpdateAsync(exists);
         }
 
@@ -101,6 +104,11 @@ namespace QuoteQuiz_Infrastructure.Repositories
             exists.FirstName = user.FirstName;
             exists.LastName = user.LastName;
             exists.Email = user.Email;
+            exists.NormalizedEmail = user.Email!.ToUpper();
+            exists.UserName = user.Email;
+            exists.NormalizedUserName = user.Email!.ToUpper();
+            exists.ModifiedBy = user.ModifiedBy;
+            exists.ModifiedOn = user.ModifiedOn;
             await _userManager.UpdateAsync(exists);
         }
 
@@ -109,6 +117,18 @@ namespace QuoteQuiz_Infrastructure.Repositories
             var exists = await _context.Set<ApplicationUser>().FirstOrDefaultAsync(t => t.Id == user.Id && !t.IsDeleted);
             if (exists == null) throw new Exception("User Not Found");
             exists.IsActive = user.IsActive;
+            exists.ModifiedBy = user.ModifiedBy;
+            exists.ModifiedOn = user.ModifiedOn;
+            await _userManager.UpdateAsync(exists);
+        }
+
+        public async Task UpdateQuizMode(AspNetUserEntity user)
+        {
+            var exists = await _context.Set<ApplicationUser>().FirstOrDefaultAsync(t => t.Id == user.Id && !t.IsDeleted);
+            if (exists == null) throw new Exception("User Not Found");
+            exists.QuizMode = user.QuizMode;
+            exists.ModifiedBy = user.ModifiedBy;
+            exists.ModifiedOn = user.ModifiedOn;
             await _userManager.UpdateAsync(exists);
         }
     }

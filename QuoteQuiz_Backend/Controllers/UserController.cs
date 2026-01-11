@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using QuoteQuiz_API.Dtos.Quote;
 using QuoteQuiz_API.Dtos.Result;
 using QuoteQuiz_API.Dtos.User;
 using QuoteQuiz_Application.Services;
@@ -26,9 +28,17 @@ namespace QuoteQuiz_API.Controllers
             _mapper = mapper;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create(UserPostDto dto)
         {
+            // Email already exists check
+            var existingUser = await _userService.GetByEmailAsync(dto.Email);
+            if (existingUser != null)
+            {
+                return BadRequest("Email already exists");
+            }
+
             AspNetUserEntity user = new();
             user.FirstName = dto.FirstName;
             user.LastName = dto.LastName;
@@ -51,27 +61,43 @@ namespace QuoteQuiz_API.Controllers
             return Ok(new Result<AspNetUserEntity>(createdUser));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateAsync(string id, UserPostDto dto)
         {
             AspNetUserEntity? exists = await _userService.GetByIdAsync(id);
-            if (exists == null) throw new Exception("User Doesn't Exist");
+            if (exists == null) return BadRequest("User Doesn't Exist");
+
+            var emailUser = await _userService.GetByEmailAsync(dto.Email);
+            if (emailUser != null && emailUser.Id != id)
+            {
+                return BadRequest("Email already exists");
+            }
 
             AspNetUserEntity user = new();
+            user.Id = id;
             user.FirstName = dto.FirstName;
             user.LastName = dto.LastName;
             user.UserName = dto.Email;
+            user.NormalizedUserName = dto.Email!.ToUpper();
             user.Email = dto.Email;
-            user.IsActive = true;
-            user.Id = id;
+            user.NormalizedEmail = dto.Email!.ToUpper();
+            user.IsActive = dto.IsActive;
             user.ModifiedOn = DateTime.UtcNow;
-            //user.ModifiedBy = access!.UserId;
 
             await _userService.UpdateAsync(user);
+
+            AspNetUserRoleEntity userRole = new AspNetUserRoleEntity()
+            {
+                UserId = id,
+                RoleId = dto.RoleId,
+            };
+            var UserRole = await _userRoleService.AssignUserToRole(userRole);
 
             return Ok(new Result<UserPostDto>(dto));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -79,6 +105,70 @@ namespace QuoteQuiz_API.Controllers
             var userDto = _mapper.Map<IReadOnlyList<UserDto>>(items);
 
             return Ok(new Result<IReadOnlyList<UserDto>>(userDto));
+        }
+
+        [Authorize(Roles = "Admin,User")]
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id)
+        {
+            var item = await _userService.GetByIdAsync(id);
+            var userDto = _mapper.Map<UserDto>(item);
+
+            return Ok(new Result<UserDto>(userDto));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            //var access = HttpContext.Items["Access"] as AccessDto;
+
+            var item = await _userService.GetByIdAsync(id);
+            if (item == null) return BadRequest("User Doesn't Exist");
+
+            item.IsDeleted = true;
+            item.IsActive = false;
+            //item.DeletedBy = access!.UserId;
+            item.DeletedOn = DateTime.UtcNow;
+
+            await _userService.RemoveAsync(item);
+
+            return Ok(new Result<UserPostDto>(null));
+
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("update-status/{id}")]
+        public async Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateUserStatusDto dto)
+        {
+            var item = await _userService.GetByIdAsync(id);
+            if (item == null) return BadRequest("User Doesn't Exist");
+
+            item.IsActive = dto.IsActive;
+            item.ModifiedBy = id;
+            item.ModifiedOn = DateTime.UtcNow;
+
+            await _userService.UpdateStatusAsync(item);
+
+            return Ok(new Result<UserPostDto>(null));
+
+        }
+
+        [Authorize(Roles = "Admin,User")]
+        [HttpPatch("update-quiz-mode/{id}")]
+        public async Task<IActionResult> UpdateQuizMode(string id, [FromBody] UpdateQuizModeDto dto)
+        {
+            var item = await _userService.GetByIdAsync(id);
+            if (item == null) return BadRequest("User Doesn't Exist");
+
+            item.QuizMode = dto.QuizMode;
+            item.ModifiedBy = id;
+            item.ModifiedOn = DateTime.UtcNow;
+
+            await _userService.UpdateQuizMode(item);
+
+            return Ok(new Result<UserPostDto>(null));
+
         }
     }
 }

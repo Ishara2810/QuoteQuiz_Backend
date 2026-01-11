@@ -47,7 +47,7 @@ namespace QuoteQuiz_API.Controllers
         {
             //var access = HttpContext.Items["Access"] as AccessDto;
             var existing = await _quoteService.GetByIdAsync(id);
-            if (existing == null) throw new Exception("Bank Not Found");
+            if (existing == null) throw new Exception("Quote Not Found");
 
             var item = _mapper.Map<QuoteEntity>(model);
             item.Id = id;
@@ -64,7 +64,7 @@ namespace QuoteQuiz_API.Controllers
             //var access = HttpContext.Items["Access"] as AccessDto;
 
             var item = await _quoteService.GetByIdAsync(id);
-            if (item == null) throw new Exception("Bank Not Found");
+            if (item == null) throw new Exception("Quote Not Found");
 
             item.IsDeleted = true;
             item.IsActive = false;

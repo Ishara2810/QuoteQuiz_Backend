@@ -18,6 +18,7 @@ namespace QuoteQuiz_Infrastructure.DBContext
         }
 
         public virtual DbSet<Quote> Quotes { get; set; }
+        public virtual DbSet<QuizAttempt> QuizAttempts { get; set; }
 
     }
 }

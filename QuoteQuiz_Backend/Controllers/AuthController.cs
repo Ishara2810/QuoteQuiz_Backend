@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using QuoteQuiz_API.Dtos.Login;
+using QuoteQuiz_API.Dtos.Quote;
+using QuoteQuiz_API.Dtos.Result;
 using QuoteQuiz_Infrastructure.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -37,18 +39,17 @@ namespace QuoteQuiz_API.Controllers
                 return Unauthorized("Invalid credentials");
 
             var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault();
 
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email!),
-                new Claim(ClaimTypes.NameIdentifier, user.Id)
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim("FirstName", user.FirstName)
             };
 
-            foreach (var role in roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-            }
+            claims.Add(new Claim(ClaimTypes.Role, role!));
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
@@ -63,11 +64,13 @@ namespace QuoteQuiz_API.Controllers
                     key, SecurityAlgorithms.HmacSha256)
             );
 
-            return Ok(new LoginResponseDto
+            var loginResponse = new LoginResponseDto
             {
                 Token = new JwtSecurityTokenHandler().WriteToken(token),
                 ExpiresAt = token.ValidTo
-            });
+            };
+
+            return Ok(new Result<LoginResponseDto>(loginResponse));
         }
     }
 }
