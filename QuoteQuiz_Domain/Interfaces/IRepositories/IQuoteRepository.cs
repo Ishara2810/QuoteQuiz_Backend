@@ -11,5 +11,6 @@ namespace QuoteQuiz_Domain.Interfaces.IRepositories
 {
     public interface IQuoteRepository : IGenericRepository<QuoteEntity>
     {
+        Task<bool> QuoteExistsAsync(string text, string author, Guid? excludeId = null);
     }
 }

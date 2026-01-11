@@ -1,4 +1,5 @@
-﻿using QuoteQuiz_Domain.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using QuoteQuiz_Domain.Entities;
 using QuoteQuiz_Domain.Interfaces.IRepositories;
 using QuoteQuiz_Domain.Interfaces.IServices;
 using System;
@@ -35,5 +36,11 @@ namespace QuoteQuiz_Application.Services
         {
             return await _quoteRepository.UpdateAsync(entity);
         }
+
+        public async Task<bool> QuoteExistsAsync(string text, string author, Guid? excludeId = null)
+        {
+            return await _quoteRepository.QuoteExistsAsync(text, author, excludeId);
+        }
+
     }
 }

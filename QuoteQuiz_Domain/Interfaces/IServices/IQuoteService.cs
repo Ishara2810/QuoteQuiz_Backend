@@ -11,6 +11,6 @@ namespace QuoteQuiz_Domain.Interfaces.IServices
 {
     public interface IQuoteService : IGenericService<QuoteEntity>
     {
-
+        Task<bool> QuoteExistsAsync(string text, string author, Guid? excludeId = null);
     }
 }

@@ -7,6 +7,7 @@ using QuoteQuiz_API.Dtos.Result;
 using QuoteQuiz_Domain.Entities;
 using QuoteQuiz_Domain.Entities.Base;
 using QuoteQuiz_Domain.Interfaces.IServices;
+using System.Security.Claims;
 
 namespace QuoteQuiz_API.Controllers
 {
@@ -34,9 +35,17 @@ namespace QuoteQuiz_API.Controllers
         [HttpPost]
         public async Task<IActionResult> Add(QuotePostDto model)
         {
-            //var access = HttpContext.Items["Access"] as AccessDto;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            var exists = await _quoteService.QuoteExistsAsync(model.Text, model.Author);
+            if (exists)
+            {
+                return BadRequest("Quote with same text and author already exists");
+            }
+
             var item = _mapper.Map<QuoteEntity>(model);
-            //item.CreatedBy = access!.UserId;
+            item.CreatedBy = userId;
             await _quoteService.AddAsync(item);
 
             return Ok(new Result<QuotePostDto>(model));
@@ -45,13 +54,21 @@ namespace QuoteQuiz_API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, QuotePostDto model)
         {
-            //var access = HttpContext.Items["Access"] as AccessDto;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
             var existing = await _quoteService.GetByIdAsync(id);
-            if (existing == null) throw new Exception("Quote Not Found");
+            if (existing == null) return BadRequest("Quote Not Found");
+
+            var exists = await _quoteService.QuoteExistsAsync(model.Text, model.Author, excludeId: id);
+            if (exists)
+            {
+                return BadRequest("Quote with same text and author already exists");
+            }
 
             var item = _mapper.Map<QuoteEntity>(model);
             item.Id = id;
-            //item.ModifiedBy = access!.UserId;
+            item.ModifiedBy = userId;
             item.ModifiedOn = DateTime.UtcNow;
             await _quoteService.UpdateAsync(item);
 
@@ -61,14 +78,15 @@ namespace QuoteQuiz_API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            //var access = HttpContext.Items["Access"] as AccessDto;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
 
             var item = await _quoteService.GetByIdAsync(id);
-            if (item == null) throw new Exception("Quote Not Found");
+            if (item == null) return BadRequest("Quote Not Found");
 
             item.IsDeleted = true;
             item.IsActive = false;
-            //item.DeletedBy = access!.UserId;
+            item.DeletedBy = userId;
             item.DeletedOn = DateTime.UtcNow;
 
             await _quoteService.UpdateAsync(item);

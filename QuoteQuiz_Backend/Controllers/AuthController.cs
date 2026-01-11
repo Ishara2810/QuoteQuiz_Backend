@@ -8,6 +8,7 @@ using QuoteQuiz_API.Dtos.Result;
 using QuoteQuiz_Infrastructure.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace QuoteQuiz_API.Controllers
@@ -34,8 +35,7 @@ namespace QuoteQuiz_API.Controllers
             if (user == null || !user.IsActive)
                 return Unauthorized("Invalid credentials");
 
-            var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
-            if (!passwordValid)
+            if (!await _userManager.CheckPasswordAsync(user, request.Password))
                 return Unauthorized("Invalid credentials");
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -46,10 +46,9 @@ namespace QuoteQuiz_API.Controllers
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email!),
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim("FirstName", user.FirstName)
+                new Claim("FirstName", user.FirstName),
+                new Claim(ClaimTypes.Role, role!)
             };
-
-            claims.Add(new Claim(ClaimTypes.Role, role!));
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
@@ -64,13 +63,98 @@ namespace QuoteQuiz_API.Controllers
                     key, SecurityAlgorithms.HmacSha256)
             );
 
-            var loginResponse = new LoginResponseDto
+            // Refresh token
+            var refreshToken = GenerateRefreshToken();
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+
+            await _userManager.UpdateAsync(user);
+
+            return Ok(new Result<LoginResponseDto>(new LoginResponseDto
             {
                 Token = new JwtSecurityTokenHandler().WriteToken(token),
-                ExpiresAt = token.ValidTo
+                ExpiresAt = token.ValidTo,
+                RefreshToken = refreshToken
+            }));
+        }
+
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken(RefreshTokenRequestDto dto)
+        {
+            var principal = GetPrincipalFromExpiredToken(dto.AccessToken);
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var user = await _userManager.FindByIdAsync(userId!);
+            if (user == null ||
+                user.RefreshToken != dto.RefreshToken ||
+                user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            {
+                return Unauthorized("Invalid refresh token");
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault();
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email!),
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim("FirstName", user.FirstName),
+                new Claim(ClaimTypes.Role, role!)
             };
 
-            return Ok(new Result<LoginResponseDto>(loginResponse));
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+
+            var newToken = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(
+                    int.Parse(_configuration["Jwt:ExpiresInMinutes"]!)),
+                signingCredentials: new SigningCredentials(
+                    key, SecurityAlgorithms.HmacSha256)
+            );
+
+            // Rotate refresh token
+            user.RefreshToken = GenerateRefreshToken();
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            await _userManager.UpdateAsync(user);
+
+            return Ok(new Result<LoginResponseDto>(new LoginResponseDto
+            {
+                Token = new JwtSecurityTokenHandler().WriteToken(newToken),
+                ExpiresAt = newToken.ValidTo,
+                RefreshToken = user.RefreshToken
+            }));
         }
+
+
+        private static string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        }
+
+        private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
+        {
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateAudience = false,
+                ValidateIssuer = false,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!)),
+                ValidateLifetime = false
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var principal = tokenHandler.ValidateToken(
+                token, tokenValidationParameters, out _);
+
+            return principal;
+        }
+
+
     }
 }

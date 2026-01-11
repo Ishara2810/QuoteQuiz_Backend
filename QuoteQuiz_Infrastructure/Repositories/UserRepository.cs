@@ -107,6 +107,7 @@ namespace QuoteQuiz_Infrastructure.Repositories
             exists.NormalizedEmail = user.Email!.ToUpper();
             exists.UserName = user.Email;
             exists.NormalizedUserName = user.Email!.ToUpper();
+            exists.IsActive = user.IsActive;
             exists.ModifiedBy = user.ModifiedBy;
             exists.ModifiedOn = user.ModifiedOn;
             await _userManager.UpdateAsync(exists);

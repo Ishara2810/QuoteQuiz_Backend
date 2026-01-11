@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using QuoteQuiz_Domain.Entities;
 using QuoteQuiz_Domain.Entities.Base;
 using QuoteQuiz_Domain.Interfaces.IRepositories;
@@ -21,6 +22,21 @@ namespace QuoteQuiz_Infrastructure.Repositories
         {
             _context = context;
             _mapper = mapper;
+        }
+
+        public async Task<bool> QuoteExistsAsync(string text, string author, Guid? excludeId = null)
+        {
+            var query = _context.Quotes.AsQueryable().Where(q =>
+                q.Text.ToLower() == text.ToLower() &&
+                q.Author.ToLower() == author.ToLower() &&
+                !q.IsDeleted);
+
+            if (excludeId.HasValue)
+            {
+                query = query.Where(q => q.Id != excludeId.Value);
+            }
+
+            return await query.AnyAsync();
         }
     }
 }

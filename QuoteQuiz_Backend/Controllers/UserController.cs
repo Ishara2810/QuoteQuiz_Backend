@@ -10,6 +10,7 @@ using QuoteQuiz_Domain.Entities;
 using QuoteQuiz_Domain.Interfaces.IServices;
 using QuoteQuiz_Infrastructure.Data;
 using System.Diagnostics;
+using System.Security.Claims;
 
 namespace QuoteQuiz_API.Controllers
 {
@@ -32,6 +33,9 @@ namespace QuoteQuiz_API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(UserPostDto dto)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
             // Email already exists check
             var existingUser = await _userService.GetByEmailAsync(dto.Email);
             if (existingUser != null)
@@ -46,6 +50,7 @@ namespace QuoteQuiz_API.Controllers
             user.Email = dto.Email;
             user.IsActive = true;
             user.CreatedOn = DateTime.UtcNow;
+            user.CreatedBy = userId;
 
             await _userService.CreateAsync(user, dto.Password);
 
@@ -65,6 +70,9 @@ namespace QuoteQuiz_API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateAsync(string id, UserPostDto dto)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
             AspNetUserEntity? exists = await _userService.GetByIdAsync(id);
             if (exists == null) return BadRequest("User Doesn't Exist");
 
@@ -84,6 +92,7 @@ namespace QuoteQuiz_API.Controllers
             user.NormalizedEmail = dto.Email!.ToUpper();
             user.IsActive = dto.IsActive;
             user.ModifiedOn = DateTime.UtcNow;
+            user.ModifiedBy = userId;
 
             await _userService.UpdateAsync(user);
 
@@ -121,14 +130,15 @@ namespace QuoteQuiz_API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            //var access = HttpContext.Items["Access"] as AccessDto;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
 
             var item = await _userService.GetByIdAsync(id);
             if (item == null) return BadRequest("User Doesn't Exist");
 
             item.IsDeleted = true;
             item.IsActive = false;
-            //item.DeletedBy = access!.UserId;
+            item.DeletedBy = userId;
             item.DeletedOn = DateTime.UtcNow;
 
             await _userService.RemoveAsync(item);
@@ -141,11 +151,14 @@ namespace QuoteQuiz_API.Controllers
         [HttpPatch("update-status/{id}")]
         public async Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateUserStatusDto dto)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
             var item = await _userService.GetByIdAsync(id);
             if (item == null) return BadRequest("User Doesn't Exist");
 
             item.IsActive = dto.IsActive;
-            item.ModifiedBy = id;
+            item.ModifiedBy = userId;
             item.ModifiedOn = DateTime.UtcNow;
 
             await _userService.UpdateStatusAsync(item);
